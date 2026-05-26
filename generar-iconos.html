@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Generar iconos PWA — Vida de Yoguis</title>
+  <style>
+    body { font-family: sans-serif; background: #F5EFE6; color: #3E2C1C;
+           display: flex; flex-direction: column; align-items: center;
+           padding: 40px 20px; gap: 20px; }
+    canvas { border-radius: 24px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+    button { background: #C9A57B; color: #fff; border: none; padding: 12px 28px;
+             border-radius: 12px; font-size: 1rem; cursor: pointer; margin: 4px; }
+    button:hover { background: #b8906a; }
+    .par { display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap; justify-content: center; }
+    h2 { margin: 0; }
+  </style>
+</head>
+<body>
+  <h2>🧘🏻‍♀️ Generador de iconos PWA</h2>
+  <p>Pulsa los botones para descargar los iconos y colócalos en la carpeta <strong>icons/</strong>.</p>
+
+  <div class="par">
+    <div>
+      <canvas id="c192" width="192" height="192"></canvas><br/>
+      <button onclick="descargar('c192','icon-192.png')">⬇️ Descargar icon-192.png</button>
+    </div>
+    <div>
+      <canvas id="c512" width="512" height="512"></canvas><br/>
+      <button onclick="descargar('c512','icon-512.png')">⬇️ Descargar icon-512.png</button>
+    </div>
+  </div>
+
+  <script>
+    function dibujarIcono(canvas) {
+      const s = canvas.width;
+      const ctx = canvas.getContext('2d');
+
+      // Fondo crema
+      ctx.fillStyle = '#F5EFE6';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, s, s, s * 0.22);
+      ctx.fill();
+
+      // Círculo decorativo café claro
+      ctx.fillStyle = '#C9A57B';
+      ctx.beginPath();
+      ctx.arc(s / 2, s / 2, s * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Emoji yoga mujer piel clara
+      const fontSize = Math.round(s * 0.48);
+      ctx.font = `${fontSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🧘🏻‍♀️', s / 2, s / 2 + s * 0.03);
+    }
+
+    function descargar(id, nombre) {
+      const canvas = document.getElementById(id);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = nombre;
+      a.click();
+    }
+
+    // Dibujar ambos al cargar
+    ['c192', 'c512'].forEach(id => dibujarIcono(document.getElementById(id)));
+  </script>
+</body>
+</html>
