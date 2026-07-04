@@ -762,11 +762,15 @@ async function cargarFicha(alumnoId) {
     // Datos de contacto
     document.getElementById('ficha-telefono').textContent  = a.telefono;
     document.getElementById('ficha-fecha-alta').textContent = a.fecha_alta;
-    document.getElementById('ficha-observaciones').textContent = a.observaciones || 'Sin notas';
-    document.getElementById('ficha-obs-input').value = a.observaciones || '';
-    // Asegurar que la vista esté activa y el editor cerrado al cargar
-    document.getElementById('ficha-obs-vista').classList.remove('oculto');
-    document.getElementById('ficha-obs-editor').classList.add('oculto');
+    // Observaciones (null-safe: estos elementos pueden no existir en versiones cacheadas)
+    const elObsTxt    = document.getElementById('ficha-observaciones');
+    const elObsInput  = document.getElementById('ficha-obs-input');
+    const elObsVista  = document.getElementById('ficha-obs-vista');
+    const elObsEditor = document.getElementById('ficha-obs-editor');
+    if (elObsTxt)    elObsTxt.textContent  = a.observaciones || 'Sin notas';
+    if (elObsInput)  elObsInput.value      = a.observaciones || '';
+    if (elObsVista)  elObsVista.classList.remove('oculto');
+    if (elObsEditor) elObsEditor.classList.add('oculto');
 
     // Ajuste de clases — restablecer display al valor actual
     document.getElementById('ajustar-valor-display').textContent = app.fichaClasesBase;
@@ -926,33 +930,43 @@ function inicializarFicha() {
     if (e.target === e.currentTarget) document.getElementById('modal-baja').classList.add('oculto');
   });
 
-  // ── Editar observaciones ──────────────────────────────────────────────────
-  document.getElementById('btn-editar-obs').addEventListener('click', () => {
-    document.getElementById('ficha-obs-vista').classList.add('oculto');
-    document.getElementById('ficha-obs-editor').classList.remove('oculto');
-    document.getElementById('ficha-obs-input').focus();
-  });
+  // ── Editar observaciones (null-safe: solo se conecta si los elementos existen) ──
+  const btnEditarObs   = document.getElementById('btn-editar-obs');
+  const btnCancelarObs = document.getElementById('btn-cancelar-obs');
+  const btnGuardarObs  = document.getElementById('btn-guardar-obs');
 
-  document.getElementById('btn-cancelar-obs').addEventListener('click', () => {
-    document.getElementById('ficha-obs-editor').classList.add('oculto');
-    document.getElementById('ficha-obs-vista').classList.remove('oculto');
-  });
+  if (btnEditarObs) {
+    btnEditarObs.addEventListener('click', () => {
+      document.getElementById('ficha-obs-vista').classList.add('oculto');
+      document.getElementById('ficha-obs-editor').classList.remove('oculto');
+      document.getElementById('ficha-obs-input').focus();
+    });
+  }
 
-  document.getElementById('btn-guardar-obs').addEventListener('click', async () => {
-    const texto = document.getElementById('ficha-obs-input').value.trim();
-    mostrarSpinner();
-    try {
-      await llamarAPI({ accion: 'editar_observacion', alumno_id: app.fichaAlumnoId, observacion: texto });
-      document.getElementById('ficha-observaciones').textContent = texto || 'Sin notas';
+  if (btnCancelarObs) {
+    btnCancelarObs.addEventListener('click', () => {
       document.getElementById('ficha-obs-editor').classList.add('oculto');
       document.getElementById('ficha-obs-vista').classList.remove('oculto');
-      mostrarToast('Notas guardadas ✓');
-    } catch (e) {
-      mostrarToast('Error al guardar las notas.');
-    } finally {
-      ocultarSpinner();
-    }
-  });
+    });
+  }
+
+  if (btnGuardarObs) {
+    btnGuardarObs.addEventListener('click', async () => {
+      const texto = document.getElementById('ficha-obs-input').value.trim();
+      mostrarSpinner();
+      try {
+        await llamarAPI({ accion: 'editar_observacion', alumno_id: app.fichaAlumnoId, observacion: texto });
+        document.getElementById('ficha-observaciones').textContent = texto || 'Sin notas';
+        document.getElementById('ficha-obs-editor').classList.add('oculto');
+        document.getElementById('ficha-obs-vista').classList.remove('oculto');
+        mostrarToast('Notas guardadas ✓');
+      } catch (e) {
+        mostrarToast('Error al guardar las notas.');
+      } finally {
+        ocultarSpinner();
+      }
+    });
+  }
 }
 
 async function _reactivarAlumna() {
