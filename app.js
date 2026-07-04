@@ -255,12 +255,10 @@ async function manejarQrDetectado(texto) {
   await procesarAsistencia(texto.trim());
 }
 
-async function procesarAsistencia(alumnoId, confirmar = false) {
+async function procesarAsistencia(alumnoId) {
   mostrarSpinner();
   try {
-    const params = { accion: 'registrar_asistencia', alumno_id: alumnoId };
-    if (confirmar) params.confirmar = 'true';
-    const datos = await llamarAPI(params);
+    const datos = await llamarAPI({ accion: 'registrar_asistencia', alumno_id: alumnoId });
     mostrarPantalla('pantalla-resultado');
     mostrarResultadoEscaneo(datos, alumnoId);
   } catch (e) {
@@ -346,7 +344,7 @@ function mostrarListaSeleccionTelefono(alumnas) {
 // =============================================================================
 
 const BLOQUES_RESULTADO = [
-  'resultado-ok', 'resultado-recuperacion', 'resultado-problema',
+  'resultado-ok', 'resultado-problema',
   'resultado-no-existe', 'resultado-inactiva',
 ];
 
@@ -355,14 +353,18 @@ function mostrarResultadoEscaneo(datos, alumnoId) {
   app.nombreActual   = datos.nombre || '';
   BLOQUES_RESULTADO.forEach(id => document.getElementById(id).classList.add('oculto'));
 
+  // Nota de observaciones — visible si la alumna tiene notas
+  const notaEl  = document.getElementById('resultado-obs-nota');
+  const notaTxt = document.getElementById('resultado-obs-texto');
+  if (datos.observaciones) {
+    notaTxt.textContent = datos.observaciones;
+    notaEl.classList.remove('oculto');
+  } else {
+    notaEl.classList.add('oculto');
+  }
+
   if (datos.ok) {
-    if (datos.estado === 'asistio') {
-      _resultadoOk(datos);
-    } else if (datos.estado === 'recuperacion' && datos.pendiente_confirmacion) {
-      _resultadoRecuperacion(datos);
-    } else if (datos.estado === 'recuperacion') {
-      _resultadoOkTexto(datos.nombre, '✅ Clase de recuperación registrada', datos.mensaje || '');
-    }
+    _resultadoOk(datos);
   } else {
     switch (datos.motivo) {
       case 'sin_clases': _resultadoProblema(datos, 'sin_clases'); break;
@@ -380,18 +382,6 @@ function _resultadoOk(d) {
   document.getElementById('resultado-ok-clases').innerHTML   = `Le quedan <strong>${n}</strong> clase${n !== 1 ? 's' : ''}`;
   document.getElementById('resultado-ok-pack').textContent   = `Pack ${d.pack}`;
   document.getElementById('resultado-ok').classList.remove('oculto');
-}
-
-function _resultadoOkTexto(nombre, l1, l2) {
-  document.getElementById('resultado-ok-nombre').textContent = nombre;
-  document.getElementById('resultado-ok-clases').innerHTML   = l1;
-  document.getElementById('resultado-ok-pack').textContent   = l2;
-  document.getElementById('resultado-ok').classList.remove('oculto');
-}
-
-function _resultadoRecuperacion(d) {
-  document.getElementById('resultado-recup-nombre').textContent = d.nombre;
-  document.getElementById('resultado-recuperacion').classList.remove('oculto');
 }
 
 function _resultadoProblema(d, motivo) {
@@ -413,20 +403,9 @@ function _resultadoInactiva(d) {
 
 function inicializarResultado() {
   document.getElementById('btn-escanear-otra').addEventListener('click', _volverAEscanear);
-  document.getElementById('btn-cancelar-recup').addEventListener('click', _volverAEscanear);
   document.getElementById('btn-cancelar-problema').addEventListener('click', _volverAEscanear);
   document.getElementById('btn-volver-escanear-desde-resultado').addEventListener('click', _volverAEscanear);
   document.getElementById('btn-volver-escanear-inactiva').addEventListener('click', _volverAEscanear);
-
-  document.getElementById('btn-confirmar-recup').addEventListener('click', async () => {
-    if (!app.alumnoIdActual) return;
-    mostrarSpinner();
-    try {
-      const d = await llamarAPI({ accion: 'registrar_asistencia', alumno_id: app.alumnoIdActual, confirmar: 'true' });
-      mostrarResultadoEscaneo(d, app.alumnoIdActual);
-    } catch (e) { mostrarToast('Error al confirmar. Inténtalo de nuevo.'); }
-    finally { ocultarSpinner(); }
-  });
 
   document.getElementById('btn-mostrar-renovar-inline').addEventListener('click', () => {
     document.getElementById('resultado-prob-acciones').classList.add('oculto');
@@ -617,9 +596,8 @@ async function cargarDashboard() {
     document.getElementById('stat-sueltas-euros').textContent = `${datos.sueltas_mes.euros} €`;
 
     // Badges de alertas
-    document.getElementById('badge-avisar').textContent       = datos.avisar.length;
-    document.getElementById('badge-recuperacion').textContent = datos.recuperacion_pendiente.length;
-    document.getElementById('badge-caducado').textContent     = datos.caducado.length;
+    document.getElementById('badge-avisar').textContent   = datos.avisar.length;
+    document.getElementById('badge-caducado').textContent = datos.caducado.length;
 
   } catch (e) {
     mostrarToast('Error de conexión al cargar el dashboard.');
@@ -629,8 +607,7 @@ async function cargarDashboard() {
 }
 
 function inicializarDashboard() {
-  // Cada botón de alerta navega a la lista detallada del tipo correspondiente
-  ['btn-alerta-avisar', 'btn-alerta-recuperacion', 'btn-alerta-caducado'].forEach(id => {
+  ['btn-alerta-avisar', 'btn-alerta-caducado'].forEach(id => {
     document.getElementById(id).addEventListener('click', () => {
       const tipo = document.getElementById(id).dataset.tipo;
       mostrarPantalla('pantalla-lista-detalle');
@@ -645,9 +622,8 @@ function inicializarDashboard() {
 // =============================================================================
 
 const TITULOS_DETALLE = {
-  avisar               : '⚡ Pocas clases restantes',
-  recuperacion_pendiente: '🔁 Recuperación pendiente',
-  caducado             : '⏰ Pack caducado',
+  avisar   : '⚡ Pocas clases restantes',
+  caducado : '⏰ Pack caducado',
 };
 
 function cargarListaDetalle(tipo) {
@@ -783,25 +759,14 @@ async function cargarFicha(alumnoId) {
     document.getElementById('ficha-clases').textContent   = a.clases_restantes;
     document.getElementById('ficha-fecha-fin').textContent = a.fecha_fin;
 
-    // Recuperación
-    const filaRecup = document.getElementById('ficha-fila-recup');
-    if (a.tiene_recuperacion) {
-      document.getElementById('ficha-recup').textContent = '⚠️ Pendiente de usar';
-      filaRecup.classList.remove('oculto');
-    } else {
-      filaRecup.classList.add('oculto');
-    }
-
     // Datos de contacto
     document.getElementById('ficha-telefono').textContent  = a.telefono;
     document.getElementById('ficha-fecha-alta').textContent = a.fecha_alta;
-    const obsWrapper = document.getElementById('ficha-obs-fila');
-    if (a.observaciones) {
-      document.getElementById('ficha-observaciones').textContent = a.observaciones;
-      obsWrapper.classList.remove('oculto');
-    } else {
-      obsWrapper.classList.add('oculto');
-    }
+    document.getElementById('ficha-observaciones').textContent = a.observaciones || 'Sin notas';
+    document.getElementById('ficha-obs-input').value = a.observaciones || '';
+    // Asegurar que la vista esté activa y el editor cerrado al cargar
+    document.getElementById('ficha-obs-vista').classList.remove('oculto');
+    document.getElementById('ficha-obs-editor').classList.add('oculto');
 
     // Ajuste de clases — restablecer display al valor actual
     document.getElementById('ajustar-valor-display').textContent = app.fichaClasesBase;
@@ -960,6 +925,34 @@ function inicializarFicha() {
   document.getElementById('modal-baja').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) document.getElementById('modal-baja').classList.add('oculto');
   });
+
+  // ── Editar observaciones ──────────────────────────────────────────────────
+  document.getElementById('btn-editar-obs').addEventListener('click', () => {
+    document.getElementById('ficha-obs-vista').classList.add('oculto');
+    document.getElementById('ficha-obs-editor').classList.remove('oculto');
+    document.getElementById('ficha-obs-input').focus();
+  });
+
+  document.getElementById('btn-cancelar-obs').addEventListener('click', () => {
+    document.getElementById('ficha-obs-editor').classList.add('oculto');
+    document.getElementById('ficha-obs-vista').classList.remove('oculto');
+  });
+
+  document.getElementById('btn-guardar-obs').addEventListener('click', async () => {
+    const texto = document.getElementById('ficha-obs-input').value.trim();
+    mostrarSpinner();
+    try {
+      await llamarAPI({ accion: 'editar_observacion', alumno_id: app.fichaAlumnoId, observacion: texto });
+      document.getElementById('ficha-observaciones').textContent = texto || 'Sin notas';
+      document.getElementById('ficha-obs-editor').classList.add('oculto');
+      document.getElementById('ficha-obs-vista').classList.remove('oculto');
+      mostrarToast('Notas guardadas ✓');
+    } catch (e) {
+      mostrarToast('Error al guardar las notas.');
+    } finally {
+      ocultarSpinner();
+    }
+  });
 }
 
 async function _reactivarAlumna() {
@@ -1063,7 +1056,7 @@ function inicializarRenovar() {
       });
 
       if (datos.ok) {
-        const msg = `Renovadas: ${datos.renovadas} · Recuperaciones aplicadas: ${datos.recuperaciones_aplicadas}`;
+        const msg = `Renovadas: ${datos.renovadas}`;
         mostrarToast(msg, 4000);
         mostrarPantalla('pantalla-home');
       } else {
