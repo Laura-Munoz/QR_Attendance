@@ -4,7 +4,7 @@
    Las peticiones a Apps Script siempre van a la red.
    ============================================================ */
 
-const CACHE_VERSION = 'vdy-v1';
+const CACHE_VERSION = 'vdy-v2';
 const ASSETS_ESTATICOS = [
   '/',
   '/index.html',
@@ -69,3 +69,4 @@ self.addEventListener('fetch', (evento) => {
     })
   );
 });
+
