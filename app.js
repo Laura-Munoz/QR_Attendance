@@ -356,11 +356,13 @@ function mostrarResultadoEscaneo(datos, alumnoId) {
   // Nota de observaciones — visible si la alumna tiene notas
   const notaEl  = document.getElementById('resultado-obs-nota');
   const notaTxt = document.getElementById('resultado-obs-texto');
-  if (datos.observaciones) {
-    notaTxt.textContent = datos.observaciones;
-    notaEl.classList.remove('oculto');
-  } else {
-    notaEl.classList.add('oculto');
+  if (notaEl && notaTxt) {
+    if (datos.observaciones) {
+      notaTxt.textContent = datos.observaciones;
+      notaEl.classList.remove('oculto');
+    } else {
+      notaEl.classList.add('oculto');
+    }
   }
 
   if (datos.ok) {
