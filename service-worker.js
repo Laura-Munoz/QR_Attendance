@@ -4,7 +4,7 @@
    Las peticiones a Apps Script siempre van a la red.
    ============================================================ */
 
-const CACHE_VERSION = 'vdy-v2';
+const CACHE_VERSION = 'vdy-v3';
 const ASSETS_ESTATICOS = [
   '/',
   '/index.html',
@@ -39,7 +39,7 @@ self.addEventListener('activate', (evento) => {
   self.clients.claim();
 });
 
-// ── Fetch: sirve desde caché; red como fallback ────────────────
+// ── Fetch: network-first → siempre intenta la red; caché solo si hay error de red ──
 self.addEventListener('fetch', (evento) => {
   const url = evento.request.url;
 
@@ -49,22 +49,17 @@ self.addEventListener('fetch', (evento) => {
     return;
   }
 
-  // Para el resto: cache-first → si no está en caché, ir a red y guardar
+  // Network-first: trae el archivo fresco de la red y actualiza caché.
+  // Solo usa caché si la red falla (modo offline).
   evento.respondWith(
-    caches.match(evento.request).then((respuestaCacheada) => {
-      if (respuestaCacheada) return respuestaCacheada;
-
-      return fetch(evento.request).then((respuestaRed) => {
-        // Solo cachear respuestas válidas
-        if (!respuestaRed || respuestaRed.status !== 200 || respuestaRed.type === 'opaque') {
-          return respuestaRed;
-        }
-        const respuestaClonada = respuestaRed.clone();
-        caches.open(CACHE_VERSION).then((cache) => {
-          cache.put(evento.request, respuestaClonada);
-        });
-        return respuestaRed;
-      });
+    fetch(evento.request).then((respuestaRed) => {
+      if (respuestaRed && respuestaRed.status === 200 && respuestaRed.type !== 'opaque') {
+        const clon = respuestaRed.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(evento.request, clon));
+      }
+      return respuestaRed;
+    }).catch(() => {
+      return caches.match(evento.request);
     })
   );
 });
