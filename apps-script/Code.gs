@@ -106,6 +106,7 @@ function enrutar(e) {
       case 'reactivar':             resultado = reactivar(params);            break;
       case 'regenerar_qr':          resultado = regenerarQr(params);          break;
       case 'buscar_por_telefono':   resultado = buscarPorTelefono(params);    break;
+      case 'editar_observacion':    resultado = editarObservacion(params);    break;
       default:
         resultado = { ok: false, motivo: 'accion_desconocida', accion: accion };
     }
@@ -152,7 +153,7 @@ function altaAlumna(params) {
     telefono,
     pack,
     clases,
-    false,                      // tiene_recuperacion: empieza sin recuperación
+    false,                      // tiene_recuperacion: siempre FALSE (regla eliminada)
     formatearFecha(hoy),        // fecha_inicio: hoy
     formatearFecha(fechaFin),   // fecha_fin: último día del mes en curso
     true,                       // activo
@@ -166,20 +167,14 @@ function altaAlumna(params) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  ENDPOINT 2 — registrar_asistencia
-//  GET/POST: alumno_id, confirmar (opcional, "true" para confirmar recuperación)
+//  GET/POST: alumno_id
 //
-//  Flujo de recuperación en dos pasos:
-//    1.ª llamada (sin confirmar): si queda 1 clase y tiene_recuperacion=TRUE,
-//      devuelve estado "recuperacion" SIN descontar ni registrar nada.
-//      El frontend muestra "Confirmar / Cancelar".
-//    2.ª llamada (con confirmar=true): ejecuta el descuento y el registro.
-//
-//  Para asistencias normales solo hace falta una llamada.
+//  Registra la asistencia de la alumna: descuenta 1 clase y anota en Asistencias.
+//  Las clases no gastadas en el mes anterior no se recuperan: al renovar se resetea a cero.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function registrarAsistencia(params) {
-  var alumnoId  = trim(params.alumno_id || '');
-  var confirmar = trim(params.confirmar || '') === 'true';
+  var alumnoId = trim(params.alumno_id || '');
 
   if (!alumnoId) {
     return { ok: false, motivo: 'no_existe' };
@@ -193,75 +188,39 @@ function registrarAsistencia(params) {
     return { ok: false, motivo: 'no_existe' };
   }
 
-  // Leer todos los datos de la alumna de una sola llamada (más eficiente)
-  var datos       = hoja.getRange(fila, 1, 1, 11).getValues()[0];
-  var nombre      = datos[COL_C.NOMBRE      - 1];
-  var pack        = datos[COL_C.PACK        - 1];
-  var clases      = parseInt(datos[COL_C.CLASES_REST - 1]) || 0;
-  var tieneRecup  = datos[COL_C.TIENE_RECUP - 1] === true;
-  var fechaFinRaw = datos[COL_C.FECHA_FIN   - 1];
-  var activo      = datos[COL_C.ACTIVO      - 1] === true;
+  var datos         = hoja.getRange(fila, 1, 1, 11).getValues()[0];
+  var nombre        = datos[COL_C.NOMBRE        - 1];
+  var pack          = datos[COL_C.PACK          - 1];
+  var clases        = parseInt(datos[COL_C.CLASES_REST - 1]) || 0;
+  var fechaFinRaw   = datos[COL_C.FECHA_FIN     - 1];
+  var activo        = datos[COL_C.ACTIVO        - 1] === true;
+  var observaciones = trim(String(datos[COL_C.OBSERVACIONES - 1] || ''));
 
-  // Alumna dada de baja
   if (!activo) {
-    return { ok: false, motivo: 'inactiva', nombre: nombre };
+    return { ok: false, motivo: 'inactiva', nombre: nombre, observaciones: observaciones };
   }
 
   var fechaFinStr = formatearFecha(fechaFinRaw);
 
-  // Pack caducado: hoy es posterior al último día del pack
   if (esFechaVencida(fechaFinRaw)) {
-    return { ok: false, motivo: 'caducado', nombre: nombre, fecha_fin: fechaFinStr };
+    return { ok: false, motivo: 'caducado', nombre: nombre, fecha_fin: fechaFinStr, observaciones: observaciones };
   }
 
-  // Sin clases disponibles
   if (clases <= 0) {
-    return { ok: false, motivo: 'sin_clases', nombre: nombre, pack: pack, fecha_fin: fechaFinStr };
+    return { ok: false, motivo: 'sin_clases', nombre: nombre, pack: pack, fecha_fin: fechaFinStr, observaciones: observaciones };
   }
 
-  // Detectar situación de recuperación:
-  // la última clase del mes (clases == 1) es la de recuperación cuando tiene_recuperacion = TRUE.
-  var esRecuperacion = (clases === 1 && tieneRecup);
-
-  // Primera llamada con recuperación pendiente: avisar sin ejecutar nada todavía.
-  // El frontend mostrará "Confirmar / Cancelar" y solo volverá a llamar si confirma.
-  if (esRecuperacion && !confirmar) {
-    return {
-      ok                    : true,
-      estado                : 'recuperacion',
-      pendiente_confirmacion : true,
-      nombre                : nombre,
-      mensaje               : 'Esta es su clase de recuperación del mes anterior'
-    };
-  }
-
-  // A partir de aquí se ejecutan cambios en el Sheet (asistencia normal o recuperación confirmada)
   var clasesRestantes = clases - 1;
   hoja.getRange(fila, COL_C.CLASES_REST).setValue(clasesRestantes);
-
-  // Si era recuperación confirmada, limpiar la marca para que no se acumule al mes siguiente
-  if (esRecuperacion) {
-    hoja.getRange(fila, COL_C.TIENE_RECUP).setValue(false);
-  }
-
-  var estadoRegistro = esRecuperacion ? 'recuperacion' : 'asistio';
-  insertarAsistencia(ss, alumnoId, nombre, estadoRegistro);
-
-  if (esRecuperacion) {
-    return {
-      ok      : true,
-      estado  : 'recuperacion',
-      nombre  : nombre,
-      mensaje : 'Clase de recuperación registrada correctamente'
-    };
-  }
+  insertarAsistencia(ss, alumnoId, nombre, 'asistio');
 
   return {
     ok               : true,
     estado           : 'asistio',
     nombre           : nombre,
     pack             : pack,
-    clases_restantes : clasesRestantes
+    clases_restantes : clasesRestantes,
+    observaciones    : observaciones
   };
 }
 
@@ -500,7 +459,7 @@ function dashboard() {
     var estado = String(dataA[i][COL_A.ESTADO - 1]);
 
     if (ts.getMonth() === mesActual && ts.getFullYear() === anioActual) {
-      if (estado === 'asistio' || estado === 'recuperacion') asistenciasMes++;
+      if (estado === 'asistio') asistenciasMes++;
       if (estado === 'suelta')  sueltasMes++;
     }
   }
@@ -509,10 +468,9 @@ function dashboard() {
 
   // ── Análisis de alumnas activas ────────────────────────────────────────────
   var dataC                = hojaC.getDataRange().getValues();
-  var altasMes             = 0;
-  var avisar               = []; // ≤ 1 clase restante
-  var recuperacionPendiente = []; // tienen_recuperacion = TRUE
-  var caducado             = []; // fecha_fin vencida
+  var altasMes = 0;
+  var avisar   = []; // ≤ 1 clase restante
+  var caducado = []; // fecha_fin vencida
 
   for (var j = 1; j < dataC.length; j++) {
     var fila   = dataC[j];
@@ -522,7 +480,6 @@ function dashboard() {
     var fechaAltaRaw = fila[COL_C.FECHA_ALTA   - 1];
     var fechaFinRaw  = fila[COL_C.FECHA_FIN    - 1];
     var clases       = parseInt(fila[COL_C.CLASES_REST  - 1]) || 0;
-    var tieneRecup   = fila[COL_C.TIENE_RECUP  - 1] === true;
     var id           = fila[COL_C.ID   - 1];
     var nombre       = fila[COL_C.NOMBRE - 1];
     var fechaFinStr  = formatearFecha(fechaFinRaw);
@@ -538,11 +495,6 @@ function dashboard() {
       avisar.push({ id: id, nombre: nombre, clases_restantes: clases });
     }
 
-    // Recuperación pendiente de usar este mes
-    if (tieneRecup) {
-      recuperacionPendiente.push({ id: id, nombre: nombre, fecha_fin: fechaFinStr });
-    }
-
     // Pack caducado
     if (esFechaVencida(fechaFinRaw)) {
       caducado.push({ id: id, nombre: nombre, fecha_fin: fechaFinStr });
@@ -550,13 +502,12 @@ function dashboard() {
   }
 
   return {
-    ok               : true,
-    asistencias_mes  : asistenciasMes,
-    sueltas_mes      : { cantidad: sueltasMes, euros: sueltasMes * precioSuelta },
-    altas_mes        : altasMes,
-    avisar           : avisar,
-    recuperacion_pendiente : recuperacionPendiente,
-    caducado         : caducado
+    ok              : true,
+    asistencias_mes : asistenciasMes,
+    sueltas_mes     : { cantidad: sueltasMes, euros: sueltasMes * precioSuelta },
+    altas_mes       : altasMes,
+    avisar          : avisar,
+    caducado        : caducado
   };
 }
 
@@ -564,7 +515,7 @@ function dashboard() {
 // ─────────────────────────────────────────────────────────────────────────────
 //  ENDPOINT 9 — renovar_mes
 //  POST: renovaciones (JSON string con array [{alumno_id, nuevo_pack | null}])
-//  Devuelve: { ok, renovadas, recuperaciones_aplicadas }
+//  Devuelve: { ok, renovadas }
 // ─────────────────────────────────────────────────────────────────────────────
 
 function renovarMes(params) {
@@ -584,11 +535,10 @@ function renovarMes(params) {
     return { ok: false, motivo: 'formato_invalido', detalle: 'renovaciones debe ser un array' };
   }
 
-  var ss                    = SpreadsheetApp.getActiveSpreadsheet();
-  var hoja                  = ss.getSheetByName(HOJA_CLIENTES);
-  var renovadas             = 0;
-  var recuperacionesAplicadas = 0;
-  var nuevaFechaFin         = formatearFecha(ultimoDiaMes(new Date()));
+  var ss            = SpreadsheetApp.getActiveSpreadsheet();
+  var hoja          = ss.getSheetByName(HOJA_CLIENTES);
+  var renovadas     = 0;
+  var nuevaFechaFin = formatearFecha(ultimoDiaMes(new Date()));
   var fechaHoy              = formatearFecha(new Date());
 
   renovaciones.forEach(function (item) {
@@ -605,21 +555,12 @@ function renovarMes(params) {
       hoja.getRange(fila, COL_C.ACTIVO).setValue(false);
 
     } else {
-      // Leer clases restantes antes de renovar para calcular recuperación
-      var clasesAntes  = parseInt(hoja.getRange(fila, COL_C.CLASES_REST).getValue()) || 0;
+      // Las clases no gastadas del mes anterior se pierden: se resetea al valor del pack
       var nuevasClases = clasesParaPack(nuevoPack);
-      var tieneRecup   = false;
-
-      // Regla de recuperación: si quedaban clases del mes anterior → +1 clase
-      if (clasesAntes > 0) {
-        nuevasClases++;
-        tieneRecup = true;
-        recuperacionesAplicadas++;
-      }
 
       hoja.getRange(fila, COL_C.PACK).setValue(nuevoPack);
       hoja.getRange(fila, COL_C.CLASES_REST).setValue(nuevasClases);
-      hoja.getRange(fila, COL_C.TIENE_RECUP).setValue(tieneRecup);
+      hoja.getRange(fila, COL_C.TIENE_RECUP).setValue(false);
       hoja.getRange(fila, COL_C.FECHA_INICIO).setValue(fechaHoy);
       hoja.getRange(fila, COL_C.FECHA_FIN).setValue(nuevaFechaFin);
       renovadas++;
@@ -627,9 +568,8 @@ function renovarMes(params) {
   });
 
   return {
-    ok                      : true,
-    renovadas               : renovadas,
-    recuperaciones_aplicadas: recuperacionesAplicadas
+    ok        : true,
+    renovadas : renovadas
   };
 }
 
@@ -753,6 +693,33 @@ function buscarPorTelefono(params) {
   }
 
   return { ok: true, alumnas: alumnas };
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ENDPOINT 14 — editar_observacion
+//  GET/POST: alumno_id, observacion
+//  Devuelve: { ok }
+// ─────────────────────────────────────────────────────────────────────────────
+
+function editarObservacion(params) {
+  var alumnoId     = trim(params.alumno_id    || '');
+  var observacion  = trim(params.observacion  || '');
+
+  if (!alumnoId) {
+    return { ok: false, motivo: 'faltan_datos', detalle: 'alumno_id es obligatorio' };
+  }
+
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var hoja = ss.getSheetByName(HOJA_CLIENTES);
+  var fila = buscarFilaAlumna(hoja, alumnoId);
+
+  if (!fila) {
+    return { ok: false, motivo: 'no_existe' };
+  }
+
+  hoja.getRange(fila, COL_C.OBSERVACIONES).setValue(observacion);
+  return { ok: true, observaciones: observacion };
 }
 
 
@@ -898,5 +865,5 @@ function copiarObjeto(obj) {
 
 /** Elimina espacios al inicio y al final de un string. Seguro con no-strings. */
 function trim(val) {
-  return String(val).trim();
+  retuurn String(val).trim();
 }
