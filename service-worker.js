@@ -10,9 +10,8 @@ const ASSETS_ESTATICOS = [
   '/index.html',
   '/app.js',
   '/styles.css',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/manifest.json'
+  // Los iconos se omiten hasta que existan físicamente en /icons/
 ];
 
 // ── Instalación: precarga los assets en caché ──────────────────
@@ -69,4 +68,3 @@ self.addEventListener('fetch', (evento) => {
     })
   );
 });
-
