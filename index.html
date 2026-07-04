@@ -112,6 +112,12 @@
   ══════════════════════════════════════════════════════════════ -->
   <section class="pantalla oculta pantalla-resultado-wrapper" id="pantalla-resultado" aria-live="polite">
 
+    <!-- Nota de observaciones (compartida por todas las variantes, se muestra si la alumna tiene notas) -->
+    <div class="obs-nota oculto" id="resultado-obs-nota" aria-live="polite">
+      <span class="obs-nota-icono" aria-hidden="true">📝</span>
+      <p class="obs-nota-texto" id="resultado-obs-texto"></p>
+    </div>
+
     <!-- Variante A: asistencia registrada correctamente -->
     <div class="resultado-bloque oculto" id="resultado-ok">
       <div class="resultado-icono" aria-hidden="true">✅</div>
@@ -123,23 +129,6 @@
       <button class="btn btn-primario btn-grande btn-bloque" id="btn-escanear-otra">
         📷 Escanear otra
       </button>
-    </div>
-
-    <!-- Variante B: clase de recuperación (requiere confirmación explícita) -->
-    <div class="resultado-bloque oculto" id="resultado-recuperacion">
-      <div class="resultado-icono" aria-hidden="true">⚠️</div>
-      <h2 class="resultado-nombre" id="resultado-recup-nombre">María López</h2>
-      <p class="resultado-mensaje resultado-mensaje-aviso">
-        Esta es su clase de recuperación del mes anterior
-      </p>
-      <div class="resultado-acciones">
-        <button class="btn btn-exito btn-grande btn-bloque" id="btn-confirmar-recup">
-          ✅ Confirmar asistencia
-        </button>
-        <button class="btn btn-fantasma" id="btn-cancelar-recup">
-          Cancelar
-        </button>
-      </div>
     </div>
 
     <!-- Variante C: sin clases o pack caducado (pantalla unificada) -->
@@ -366,19 +355,6 @@
       </button>
 
       <button
-        class="alerta-fila alerta-recuperacion"
-        id="btn-alerta-recuperacion"
-        data-tipo="recuperacion_pendiente"
-        role="listitem"
-        aria-label="Ver alumnas con recuperación pendiente"
-      >
-        <span class="alerta-icono" aria-hidden="true">🔁</span>
-        <span class="alerta-texto">Recuperación pendiente</span>
-        <span class="alerta-badge" id="badge-recuperacion">0</span>
-        <span class="alerta-flecha" aria-hidden="true">›</span>
-      </button>
-
-      <button
         class="alerta-fila alerta-caducado"
         id="btn-alerta-caducado"
         data-tipo="caducado"
@@ -463,10 +439,6 @@
         <span class="ficha-pack-label">Válido hasta</span>
         <span class="ficha-pack-valor" id="ficha-fecha-fin">31/05/2026</span>
       </div>
-      <div class="ficha-pack-fila" id="ficha-fila-recup">
-        <span class="ficha-pack-label">Recuperación</span>
-        <span class="ficha-pack-valor" id="ficha-recup">—</span>
-      </div>
     </div>
 
     <!-- Datos de contacto y alta -->
@@ -479,10 +451,26 @@
         <span class="ficha-dato-label">Alta:</span>
         <span id="ficha-fecha-alta">—</span>
       </p>
-      <p class="ficha-dato" id="ficha-obs-fila">
-        <span class="ficha-dato-label">Notas:</span>
-        <span id="ficha-observaciones">—</span>
-      </p>
+      <!-- Observaciones editables -->
+      <div class="ficha-obs-seccion" id="ficha-obs-fila">
+        <div class="ficha-obs-vista" id="ficha-obs-vista">
+          <span class="ficha-dato-label">Notas:</span>
+          <span class="ficha-obs-texto" id="ficha-observaciones">Sin notas</span>
+          <button class="btn-editar-obs" id="btn-editar-obs" title="Editar notas" aria-label="Editar observaciones">✏️</button>
+        </div>
+        <div class="ficha-obs-editor oculto" id="ficha-obs-editor">
+          <textarea
+            class="ficha-obs-textarea"
+            id="ficha-obs-input"
+            rows="3"
+            placeholder="Notas sobre esta alumna..."
+          ></textarea>
+          <div class="ficha-obs-botones">
+            <button class="btn btn-primario btn-pequeno" id="btn-guardar-obs">Guardar</button>
+            <button class="btn btn-fantasma btn-pequeno" id="btn-cancelar-obs">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Ajustar clases (+/-) -->
