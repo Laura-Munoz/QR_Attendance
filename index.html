@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#C9A57B" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Vida de Yoguis" />
+  <meta name="description" content="Gestión de asistencia — Vida de Yoguis" />
+  <title>Vida de Yoguis</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <!-- Tipografía -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       CABECERA GLOBAL (sticky, con botón volver dinámico)
+  ══════════════════════════════════════════════════════════════ -->
+  <header class="cabecera" id="cabecera">
+    <button class="btn-volver oculto" id="btn-volver" aria-label="Volver">
+      ← Volver
+    </button>
+    <h1 class="titulo-app">🧘🏻‍♀️ Vida de Yoguis</h1>
+    <div class="cabecera-hueco"></div>
+  </header>
+
+  <!-- Spinner de carga global (se muestra durante peticiones lentas) -->
+  <div class="spinner-overlay oculto" id="spinner" role="status" aria-label="Cargando">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 1 — HOME
+       5 botones grandes apilados verticalmente
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla" id="pantalla-home">
+    <div class="home-logo">
+      <span class="home-logo-emoji" aria-hidden="true">🧘🏻‍♀️</span>
+      <p class="home-subtitulo">Gestión de asistencia</p>
+    </div>
+
+    <nav class="home-nav" aria-label="Menú principal">
+      <button class="btn btn-home btn-primario" id="btn-ir-escanear">
+        <span class="btn-icono" aria-hidden="true">📷</span>
+        <span class="btn-texto">Escanear QR</span>
+      </button>
+      <button class="btn btn-home btn-secundario" id="btn-ir-nueva-alumna">
+        <span class="btn-icono" aria-hidden="true">➕</span>
+        <span class="btn-texto">Nueva alumna</span>
+      </button>
+      <button class="btn btn-home btn-secundario" id="btn-ir-dashboard">
+        <span class="btn-icono" aria-hidden="true">📊</span>
+        <span class="btn-texto">Dashboard</span>
+      </button>
+      <button class="btn btn-home btn-secundario" id="btn-ir-renovar">
+        <span class="btn-icono" aria-hidden="true">🔄</span>
+        <span class="btn-texto">Renovar mes</span>
+      </button>
+      <button class="btn btn-home btn-secundario" id="btn-ir-alumnas">
+        <span class="btn-icono" aria-hidden="true">👥</span>
+        <span class="btn-texto">Ver alumnas</span>
+      </button>
+    </nav>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 2 — ESCANEAR QR
+       Cámara + búsqueda manual por teléfono
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-escanear">
+    <h2 class="pantalla-titulo">Escanear QR</h2>
+
+    <!-- html5-qrcode monta el visor de cámara aquí -->
+    <div id="lector-qr" class="lector-qr" aria-label="Visor de cámara para escanear QR"></div>
+
+    <p class="ayuda-scan">Apunta la cámara al QR de la alumna</p>
+
+    <div class="separador-o" role="separator">
+      <span>o buscar por teléfono</span>
+    </div>
+
+    <div class="buscador-telefono">
+      <input
+        type="tel"
+        id="input-telefono-buscar"
+        class="input"
+        placeholder="Ej: +34 600 123 456"
+        inputmode="tel"
+        autocomplete="tel"
+        aria-label="Teléfono de la alumna"
+      />
+      <button class="btn btn-secundario" id="btn-buscar-telefono">
+        Buscar
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 2b — RESULTADO DE ESCANEO
+       4 variantes según respuesta del endpoint. Solo una visible a la vez.
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta pantalla-resultado-wrapper" id="pantalla-resultado" aria-live="polite">
+
+    <!-- Nota de observaciones (compartida por todas las variantes, se muestra si la alumna tiene notas) -->
+    <div class="obs-nota oculto" id="resultado-obs-nota" aria-live="polite">
+      <span class="obs-nota-icono" aria-hidden="true">📝</span>
+      <p class="obs-nota-texto" id="resultado-obs-texto"></p>
+    </div>
+
+    <!-- Variante A: asistencia registrada correctamente -->
+    <div class="resultado-bloque oculto" id="resultado-ok">
+      <div class="resultado-icono" aria-hidden="true">✅</div>
+      <h2 class="resultado-nombre" id="resultado-ok-nombre">María López</h2>
+      <p class="resultado-detalle">
+        Le quedan <strong id="resultado-ok-clases">3</strong> clases
+      </p>
+      <p class="resultado-chip" id="resultado-ok-pack">Pack Esencial</p>
+      <button class="btn btn-primario btn-grande btn-bloque" id="btn-escanear-otra">
+        📷 Escanear otra
+      </button>
+    </div>
+
+    <!-- Variante C: sin clases o pack caducado (pantalla unificada) -->
+    <div class="resultado-bloque oculto" id="resultado-problema">
+      <div class="resultado-icono" aria-hidden="true">⚠️</div>
+      <h2 class="resultado-nombre" id="resultado-prob-nombre">María López</h2>
+      <p class="resultado-mensaje resultado-mensaje-aviso" id="resultado-prob-motivo">
+        No le quedan clases disponibles
+      </p>
+      <p class="resultado-texto-gris" id="resultado-prob-fechafin"></p>
+
+      <!-- Selector de pack inline — se expande al pulsar "Renovar pack" -->
+      <div class="renovar-inline oculto" id="renovar-inline">
+        <p class="renovar-inline-titulo">Selecciona el nuevo pack:</p>
+        <div class="pack-radios" role="radiogroup" aria-label="Pack">
+          <label class="pack-radio">
+            <input type="radio" name="pack-inline" value="Esencial" />
+            <span>Esencial — 4 clases · 30 €/mes</span>
+          </label>
+          <label class="pack-radio">
+            <input type="radio" name="pack-inline" value="Habito" />
+            <span>Hábito — 8 clases · 60 €/mes</span>
+          </label>
+          <label class="pack-radio">
+            <input type="radio" name="pack-inline" value="Estilo" />
+            <span>Estilo — 12 clases · 80 €/mes</span>
+          </label>
+          <label class="pack-radio">
+            <input type="radio" name="pack-inline" value="Suelta" />
+            <span>Suelta — por clase · 10 €</span>
+          </label>
+        </div>
+        <button class="btn btn-primario btn-grande btn-bloque" id="btn-confirmar-cambio-pack-inline">
+          Confirmar y registrar asistencia
+        </button>
+        <button class="btn btn-fantasma btn-bloque" id="btn-cancelar-renovar-inline">
+          Cancelar
+        </button>
+      </div>
+
+      <div class="resultado-acciones" id="resultado-prob-acciones">
+        <button class="btn btn-exito btn-grande btn-bloque" id="btn-registrar-suelta-resultado">
+          💶 Registrar suelta (10 €)
+        </button>
+        <button class="btn btn-secundario btn-grande btn-bloque" id="btn-mostrar-renovar-inline">
+          🔄 Renovar pack
+        </button>
+        <button class="btn btn-fantasma" id="btn-cancelar-problema">
+          Cancelar
+        </button>
+      </div>
+    </div>
+
+    <!-- Variante D: alumna no encontrada en el sistema -->
+    <div class="resultado-bloque oculto" id="resultado-no-existe">
+      <div class="resultado-icono" aria-hidden="true">❌</div>
+      <h2 class="resultado-titulo-grande">Alumna no encontrada</h2>
+      <p class="resultado-mensaje resultado-mensaje-error">
+        El código escaneado no corresponde a ninguna alumna registrada.
+      </p>
+      <div class="resultado-acciones">
+        <button class="btn btn-primario btn-grande btn-bloque" id="btn-crear-desde-resultado">
+          ➕ Crear nueva alumna
+        </button>
+        <button class="btn btn-fantasma btn-bloque" id="btn-volver-escanear-desde-resultado">
+          ← Volver a escanear
+        </button>
+      </div>
+    </div>
+
+    <!-- Variante E: alumna dada de baja -->
+    <div class="resultado-bloque oculto" id="resultado-inactiva">
+      <div class="resultado-icono" aria-hidden="true">🚫</div>
+      <h2 class="resultado-nombre" id="resultado-inactiva-nombre">María López</h2>
+      <p class="resultado-mensaje resultado-mensaje-error">
+        Esta alumna está dada de baja.
+      </p>
+      <button class="btn btn-fantasma btn-bloque" id="btn-volver-escanear-inactiva">
+        ← Volver a escanear
+      </button>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 3 — NUEVA ALUMNA
+       Formulario de alta
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-nueva-alumna">
+    <h2 class="pantalla-titulo">Nueva alumna</h2>
+
+    <form class="formulario" id="form-nueva-alumna" novalidate>
+
+      <div class="campo">
+        <label class="label" for="input-nombre">Nombre completo *</label>
+        <input
+          type="text"
+          id="input-nombre"
+          class="input"
+          placeholder="Ej: María López"
+          autocomplete="name"
+          autocapitalize="words"
+          required
+        />
+        <span class="campo-error oculto" id="error-nombre">El nombre es obligatorio</span>
+      </div>
+
+      <div class="campo">
+        <label class="label" for="input-telefono">Teléfono *</label>
+        <input
+          type="tel"
+          id="input-telefono"
+          class="input"
+          placeholder="Ej: +34 600 123 456"
+          autocomplete="tel"
+          inputmode="tel"
+          required
+        />
+        <span class="campo-error oculto" id="error-telefono">El teléfono es obligatorio</span>
+      </div>
+
+      <div class="campo">
+        <span class="label">Pack *</span>
+        <div class="pack-radios" role="radiogroup" aria-label="Selecciona un pack">
+          <label class="pack-radio">
+            <input type="radio" name="pack-nueva" value="Esencial" checked />
+            <span>Esencial — 4 clases · 30 €/mes</span>
+          </label>
+          <label class="pack-radio">
+            <input type="radio" name="pack-nueva" value="Habito" />
+            <span>Hábito — 8 clases · 60 €/mes</span>
+          </label>
+          <label class="pack-radio">
+            <input type="radio" name="pack-nueva" value="Estilo" />
+            <span>Estilo — 12 clases · 80 €/mes</span>
+          </label>
+          <label class="pack-radio">
+            <input type="radio" name="pack-nueva" value="Suelta" />
+            <span>Suelta — por clase · 10 €</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label class="label" for="input-observaciones">Observaciones</label>
+        <textarea
+          id="input-observaciones"
+          class="input textarea"
+          placeholder="Lesiones, preferencias, notas..."
+          rows="3"
+        ></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primario btn-grande btn-bloque">
+        💾 Guardar y generar QR
+      </button>
+
+    </form>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 3b — QR GENERADO
+       Muestra el QR y opciones de envío
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-qr-generado">
+    <h2 class="pantalla-titulo">QR generado</h2>
+
+    <div class="qr-card">
+      <div id="qr-contenedor" class="qr-contenedor"></div>
+      <p class="qr-nombre" id="qr-nombre-alumna">María López</p>
+      <p class="qr-codigo" id="qr-codigo-alumna">A047</p>
+    </div>
+
+    <button class="btn btn-secundario btn-grande btn-bloque" id="btn-descargar-qr">
+      ⬇️ Descargar QR
+    </button>
+
+    <button class="btn btn-fantasma btn-grande btn-bloque" id="btn-hecho-qr">
+      ✅ Hecho — volver al inicio
+    </button>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 4 — DASHBOARD
+       Estadísticas del mes + alertas tocables
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-dashboard">
+    <h2 class="pantalla-titulo">Dashboard</h2>
+    <p class="dashboard-mes" id="dashboard-mes">Mayo 2026</p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-numero" id="stat-asistencias">—</span>
+        <span class="stat-label">Asistencias este mes</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-numero" id="stat-altas">—</span>
+        <span class="stat-label">Altas este mes</span>
+      </div>
+      <div class="stat-card stat-card-ancho">
+        <span class="stat-numero">
+          <span id="stat-sueltas">—</span>
+          <span class="stat-numero-sub"> sueltas · </span>
+          <span id="stat-sueltas-euros" class="stat-numero-sub">0 €</span>
+        </span>
+        <span class="stat-label">Clases sueltas cobradas</span>
+      </div>
+    </div>
+
+    <h3 class="seccion-subtitulo">Alertas</h3>
+
+    <div class="alertas-lista" role="list">
+      <button
+        class="alerta-fila alerta-aviso"
+        id="btn-alerta-avisar"
+        data-tipo="avisar"
+        role="listitem"
+        aria-label="Ver alumnas con pocas clases"
+      >
+        <span class="alerta-icono" aria-hidden="true">⚡</span>
+        <span class="alerta-texto">Pocas clases restantes (≤1)</span>
+        <span class="alerta-badge" id="badge-avisar">0</span>
+        <span class="alerta-flecha" aria-hidden="true">›</span>
+      </button>
+
+      <button
+        class="alerta-fila alerta-caducado"
+        id="btn-alerta-caducado"
+        data-tipo="caducado"
+        role="listitem"
+        aria-label="Ver alumnas con pack caducado"
+      >
+        <span class="alerta-icono" aria-hidden="true">⏰</span>
+        <span class="alerta-texto">Pack caducado</span>
+        <span class="alerta-badge" id="badge-caducado">0</span>
+        <span class="alerta-flecha" aria-hidden="true">›</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 4b — LISTA DETALLADA (desde dashboard)
+       Lista de alumnas de una categoría de alerta
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-lista-detalle">
+    <h2 class="pantalla-titulo" id="lista-detalle-titulo">Alumnas</h2>
+    <ul class="lista-alumnas" id="lista-detalle-items" aria-label="Lista de alumnas">
+      <!-- Se rellena dinámicamente desde JS -->
+    </ul>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 5 — VER ALUMNAS
+       Buscador + filtros + lista completa
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-alumnas">
+    <h2 class="pantalla-titulo">Alumnas</h2>
+
+    <div class="buscador">
+      <input
+        type="search"
+        id="input-buscar-alumna"
+        class="input"
+        placeholder="Buscar por nombre o teléfono..."
+        inputmode="search"
+        aria-label="Buscar alumnas"
+      />
+    </div>
+
+    <div class="filtros-tabs" role="tablist" aria-label="Filtro de alumnas">
+      <button class="tab tab-activo" role="tab" aria-selected="true"  data-filtro="activas" id="tab-activas">Activas</button>
+      <button class="tab"            role="tab" aria-selected="false" data-filtro="todas"   id="tab-todas">Todas</button>
+      <button class="tab"            role="tab" aria-selected="false" data-filtro="baja"    id="tab-baja">Baja</button>
+    </div>
+
+    <ul class="lista-alumnas" id="lista-alumnas-items" aria-label="Lista de alumnas">
+      <!-- Se rellena dinámicamente desde JS -->
+    </ul>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 5b — FICHA DE ALUMNA
+       Datos completos + historial + acciones
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-ficha">
+
+    <!-- Cabecera de la ficha -->
+    <div class="ficha-cabecera">
+      <div class="ficha-avatar" id="ficha-avatar" aria-hidden="true">M</div>
+      <div class="ficha-datos-principales">
+        <h2 class="ficha-nombre" id="ficha-nombre">María López</h2>
+        <p class="ficha-id" id="ficha-id">A001</p>
+      </div>
+      <span class="ficha-badge-estado" id="ficha-badge-estado">Activa</span>
+    </div>
+
+    <!-- Tarjeta del pack -->
+    <div class="ficha-pack-card">
+      <div class="ficha-pack-fila">
+        <span class="ficha-pack-label">Pack</span>
+        <span class="ficha-pack-valor" id="ficha-pack">Esencial</span>
+      </div>
+      <div class="ficha-pack-fila">
+        <span class="ficha-pack-label">Clases restantes</span>
+        <span class="ficha-pack-valor ficha-clases" id="ficha-clases">3</span>
+      </div>
+      <div class="ficha-pack-fila">
+        <span class="ficha-pack-label">Válido hasta</span>
+        <span class="ficha-pack-valor" id="ficha-fecha-fin">31/05/2026</span>
+      </div>
+    </div>
+
+    <!-- Datos de contacto y alta -->
+    <div class="ficha-seccion">
+      <p class="ficha-dato">
+        <span class="ficha-dato-label">Teléfono:</span>
+        <span id="ficha-telefono">—</span>
+      </p>
+      <p class="ficha-dato">
+        <span class="ficha-dato-label">Alta:</span>
+        <span id="ficha-fecha-alta">—</span>
+      </p>
+      <!-- Observaciones editables -->
+      <div class="ficha-obs-seccion" id="ficha-obs-fila">
+        <div class="ficha-obs-vista" id="ficha-obs-vista">
+          <span class="ficha-dato-label">Notas:</span>
+          <span class="ficha-obs-texto" id="ficha-observaciones">Sin notas</span>
+          <button class="btn-editar-obs" id="btn-editar-obs" title="Editar notas" aria-label="Editar observaciones">✏️</button>
+        </div>
+        <div class="ficha-obs-editor oculto" id="ficha-obs-editor">
+          <textarea
+            class="ficha-obs-textarea"
+            id="ficha-obs-input"
+            rows="3"
+            placeholder="Notas sobre esta alumna..."
+          ></textarea>
+          <div class="ficha-obs-botones">
+            <button class="btn btn-primario btn-pequeno" id="btn-guardar-obs">Guardar</button>
+            <button class="btn btn-fantasma btn-pequeno" id="btn-cancelar-obs">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ajustar clases (+/-) -->
+    <div class="ficha-ajustar">
+      <span class="ficha-ajustar-label">Ajustar clases</span>
+      <div class="ajustar-controles">
+        <button class="btn-ajustar btn-ajustar-menos" id="btn-restar-clase" aria-label="Restar una clase">−</button>
+        <span class="ajustar-valor" id="ajustar-valor-display" aria-live="polite">3</span>
+        <button class="btn-ajustar btn-ajustar-mas"   id="btn-sumar-clase"  aria-label="Sumar una clase">+</button>
+        <button class="btn btn-primario btn-pequeno"  id="btn-guardar-ajuste">Guardar</button>
+      </div>
+    </div>
+
+    <!-- Acciones principales -->
+    <div class="ficha-acciones">
+      <button class="btn btn-secundario" id="btn-ficha-cambiar-pack">
+        🔄 Cambiar pack
+      </button>
+      <button class="btn btn-secundario" id="btn-ficha-ver-qr">
+        📷 Ver QR
+      </button>
+      <button class="btn btn-baja btn-bloque" id="btn-ficha-baja-reactivar">
+        🚫 Dar de baja
+      </button>
+    </div>
+
+    <!-- Historial de últimas asistencias -->
+    <div class="ficha-historial">
+      <h3 class="ficha-historial-titulo">Últimas asistencias</h3>
+      <ul class="historial-lista" id="ficha-historial-lista" aria-label="Historial de asistencias">
+        <!-- Se rellena dinámicamente desde JS -->
+      </ul>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANTALLA 6 — RENOVAR MES
+       Lista de alumnas activas con checkbox y selector de pack
+  ══════════════════════════════════════════════════════════════ -->
+  <section class="pantalla oculta" id="pantalla-renovar">
+    <h2 class="pantalla-titulo">Renovar mes</h2>
+    <p class="renovar-descripcion">
+      Marca las alumnas que renuevan y elige su pack. Las desmarcadas quedarán dadas de baja.
+    </p>
+
+    <div class="renovar-controles-globales">
+      <button class="btn btn-fantasma btn-pequeno" id="btn-marcar-todas">
+        ✓ Marcar todas
+      </button>
+      <button class="btn btn-fantasma btn-pequeno" id="btn-desmarcar-todas">
+        ✗ Desmarcar todas
+      </button>
+    </div>
+
+    <ul class="renovar-lista" id="renovar-lista" aria-label="Alumnas para renovar">
+      <!-- Se rellena dinámicamente desde JS. Cada item tiene esta estructura:
+        <li class="renovar-item">
+          <label class="renovar-check">
+            <input type="checkbox" checked data-alumno-id="A001" />
+            <div class="renovar-info">
+              <span class="renovar-nombre">María López</span>
+              <span class="renovar-pack-actual">Esencial · 3 clases</span>
+            </div>
+          </label>
+          <select class="renovar-pack-select" aria-label="Pack para María López">
+            <option value="Esencial">Esencial</option>
+            <option value="Habito">Hábito</option>
+            <option value="Estilo">Estilo</option>
+            <option value="Suelta">Suelta</option>
+          </select>
+        </li>
+      -->
+    </ul>
+
+    <!-- Footer fijo con resumen y botón de confirmación -->
+    <div class="renovar-footer" id="renovar-footer">
+      <p class="renovar-resumen" id="renovar-resumen">0 alumnas seleccionadas</p>
+      <button class="btn btn-primario btn-grande btn-bloque" id="btn-confirmar-renovacion">
+        ✅ Confirmar renovación
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MODAL — Cambiar pack (se usa desde la ficha de alumna)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay oculto" id="modal-cambiar-pack" role="dialog" aria-modal="true" aria-labelledby="modal-pack-titulo">
+    <div class="modal">
+      <h3 class="modal-titulo" id="modal-pack-titulo">Cambiar pack</h3>
+      <div class="pack-radios" role="radiogroup" aria-label="Selecciona el nuevo pack">
+        <label class="pack-radio">
+          <input type="radio" name="pack-cambio" value="Esencial" />
+          <span>Esencial — 4 clases · 30 €/mes</span>
+        </label>
+        <label class="pack-radio">
+          <input type="radio" name="pack-cambio" value="Habito" />
+          <span>Hábito — 8 clases · 60 €/mes</span>
+        </label>
+        <label class="pack-radio">
+          <input type="radio" name="pack-cambio" value="Estilo" />
+          <span>Estilo — 12 clases · 80 €/mes</span>
+        </label>
+        <label class="pack-radio">
+          <input type="radio" name="pack-cambio" value="Suelta" />
+          <span>Suelta — por clase · 10 €</span>
+        </label>
+      </div>
+      <p class="modal-aviso">⚠️ Esta acción reseteará las clases restantes al nuevo pack.</p>
+      <div class="modal-acciones">
+        <button class="btn btn-primario" id="btn-confirmar-cambio-pack-ficha">
+          Confirmar
+        </button>
+        <button class="btn btn-fantasma" id="btn-cancelar-cambio-pack">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MODAL — Confirmar dar de baja (acción destructiva)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay oculto" id="modal-baja" role="dialog" aria-modal="true" aria-labelledby="modal-baja-titulo">
+    <div class="modal">
+      <h3 class="modal-titulo" id="modal-baja-titulo">¿Dar de baja?</h3>
+      <p class="modal-descripcion" id="modal-baja-nombre">
+        Se marcará a <strong>esta alumna</strong> como inactiva. Podrás reactivarla cuando quieras.
+      </p>
+      <div class="modal-acciones">
+        <button class="btn btn-baja" id="btn-confirmar-baja">
+          Sí, dar de baja
+        </button>
+        <button class="btn btn-fantasma" id="btn-cancelar-baja">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TOAST de notificación (mensajes de éxito / error rápidos)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="toast oculto" id="toast" role="alert" aria-live="assertive">
+    <span id="toast-mensaje">Acción completada</span>
+  </div>
+
+  <!-- CDN: html5-qrcode para el escaneo de cámara -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- CDN: qrcode.js para generación de QR en cliente -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Lógica principal de la app (se carga después del DOM) -->
+  <script src="app.js" defer></script>
+</body>
+</html>
