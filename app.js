@@ -232,7 +232,7 @@ function iniciarScanner() {
   app.scanner
     .start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 240, height: 240 } },
+      { fps: 5, qrbox: { width: 220, height: 220 } },
       (texto) => manejarQrDetectado(texto),
       () => {}
     )
@@ -1107,4 +1107,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker.js').catch(() => {});
   }
+
+  // Calentamiento de Apps Script: llamada ligera al abrir la app para
+  // evitar el cold start cuando la profesora escanee el primer QR de la clase.
+  setTimeout(() => {
+    fetch(APPS_SCRIPT_URL + '?accion=ping&_t=' + Date.now(), { redirect: 'follow', cache: 'no-store' })
+      .catch(() => {});
+  }, 2000);
 });
